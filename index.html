@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>NPZ Sistem</title>
-<link rel="icon" type="image/png" href="img_1.png">
-
+  <link rel="icon" type="image/png" href="img_1.png">
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     nav { background: #0077cc; padding: 10px; color: white; display: flex; gap: 20px; }
@@ -12,21 +11,16 @@
     section { padding: 20px; display: none; }
     section.active { display: block; }
     input, button, select { display: block; margin: 10px 0; padding: 5px; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    .gumbi {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-top: 4px;
-    }
-    .naloga-box { margin-bottom: 15px; }
+    table { border-collapse: collapse; width: 100%; max-width: 600px; margin-bottom: 20px; }
+    td, th { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 14px; }
     .hidden { display: none; }
+    .bold-red { font-weight: bold; color: red; }
+    .grade-label { font-weight: bold; }
+    .grade-value { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<!-- Prijava -->
 <section id="login" class="active">
   <h2>Prijava za admina</h2>
   <input type="text" id="login-username" placeholder="Uporabniško ime">
@@ -34,14 +28,12 @@
   <button onclick="prijava()">Prijava</button>
 </section>
 
-<!-- Glavni meni -->
 <nav id="main-nav" class="hidden">
   <button onclick="showSection('admin')">Admin</button>
   <button onclick="showSection('ocenjevanje')">Ocenjevanje</button>
   <button onclick="showSection('rezultati')">Rezultati</button>
 </nav>
 
-<!-- ADMIN -->
 <section id="admin">
   <h2>Administracija dijakov</h2>
   <input type="text" id="student-name" placeholder="Ime in priimek">
@@ -52,20 +44,32 @@
   </table>
 </section>
 
-<!-- OCENJEVANJE -->
 <section id="ocenjevanje">
   <h2>Vnos rezultatov NPZ</h2>
   <input type="text" id="vnos-koda" placeholder="Vnesi 4-mestno kodo dijaka">
   <div id="naloge-vnos" class="hidden">
-    <h3>Vnesi točke (klikni gumb za vsako nalogo)</h3>
-    <div id="naloge"></div>
+    <h3>Vnesi točke</h3>
+    <table>
+      <thead>
+        <tr><th>Naloga</th><th>Točke (0 - 16)</th></tr>
+      </thead>
+      <tbody id="vnos-tabela-body"></tbody>
+    </table>
     <button onclick="shraniRezultate()">Shrani rezultate</button>
   </div>
 </section>
 
-<!-- PREGLED -->
 <section id="rezultati">
-  <h2>Pregled rezultatov</h2>
+  <h2>PREGLED REZULTATOV</h2>
+  <p>
+    <span class="grade-label">Odl (5):</span> <span class="grade-value" id="odl"></span> ;
+    <span class="grade-label">Pdb (4):</span> <span class="grade-value" id="pdb"></span> ;
+    <span class="grade-label">Db (3):</span> <span class="grade-value" id="db"></span> ;
+    <span class="grade-label">Zd (2):</span> <span class="grade-value" id="zd"></span> ;
+    <span class="grade-label">Nzd (1):</span> <span class="grade-value" id="nzd"></span> ;
+    <span class="grade-label">Nps:</span> <span class="grade-value" id="nps"></span>
+  </p>
+  <hr>
   <input type="text" id="pregled-koda" placeholder="Vnesi 4-mestno kodo">
   <div id="rezultat-prikaz"></div>
 </section>
@@ -82,6 +86,7 @@
     if (podatki) {
       dijaki = JSON.parse(podatki);
       posodobiTabelo();
+      prikaziStatistiko();
     }
   }
 
@@ -103,6 +108,7 @@
   function showSection(id) {
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     document.getElementById(id).classList.add("active");
+    if (id === 'rezultati') prikaziStatistiko();
   }
 
   function generirajKodo() {
@@ -117,7 +123,7 @@
     const ime = document.getElementById('student-name').value.trim();
     if (!ime) return alert("Vnesi ime!");
     const koda = generirajKodo();
-    dijaki.push({ ime, koda, tocke: [] });
+    dijaki.push({ ime, koda, tocke: Array(8).fill(0) });
     shraniVLocalStorage();
     posodobiTabelo();
     alert(`Dijak dodan! Koda: ${koda}`);
@@ -147,32 +153,24 @@
     const koda = this.value;
     const dijak = dijaki.find(d => d.koda === koda);
     const vnosDiv = document.getElementById('naloge-vnos');
+    const body = document.getElementById('vnos-tabela-body');
     if (dijak) {
       vnosDiv.classList.remove('hidden');
-      const container = document.getElementById('naloge');
-      container.innerHTML = '';
-      for (let i = 0; i < 16; i++) {
-        const trenutna = dijak.tocke[i] ?? 0;
-        let gumbi = '';
-        for (let t = 0; t <= 8; t++) {
-          gumbi += `<button onclick="nastaviTocko(${i}, ${t})" id="gumb-${i}-${t}">${t}</button>`;
-        }
-        container.innerHTML += `<div class="naloga-box">
-          <strong>Naloga ${i + 1}</strong> (Trenutno: <span id="trenutna-${i}">${trenutna}</span>)
-          <div class="gumbi">${gumbi}</div>
-        </div>`;
+      body.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        body.innerHTML += `<tr><td>Naloga ${i + 1}</td>
+          <td><input type='number' min='0' max='16' value='${dijak.tocke[i]}' onchange='posodobiTocko(${i}, this.value)'></td></tr>`;
       }
     } else {
       vnosDiv.classList.add('hidden');
     }
   });
 
-  function nastaviTocko(index, vrednost) {
+  function posodobiTocko(index, vrednost) {
     const koda = document.getElementById('vnos-koda').value;
     const dijak = dijaki.find(d => d.koda === koda);
     if (!dijak) return;
-    dijak.tocke[index] = vrednost;
-    document.getElementById(`trenutna-${index}`).textContent = vrednost;
+    dijak.tocke[index] = parseInt(vrednost);
     shraniVLocalStorage();
   }
 
@@ -180,22 +178,59 @@
     alert("Rezultati shranjeni.");
   }
 
+  function prikaziStatistiko() {
+    const statistika = { odl: 0, pdb: 0, db: 0, zd: 0, nzd: 0, nps: 0 };
+    dijaki.forEach(d => {
+      const vsota = d.tocke.reduce((a, b) => a + b, 0);
+      const procent = vsota / 128 * 100;
+      if (vsota === 0) statistika.nps++;
+      else if (procent >= 90) statistika.odl++;
+      else if (procent >= 75) statistika.pdb++;
+      else if (procent >= 60) statistika.db++;
+      else if (procent >= 50) statistika.zd++;
+      else if (procent > 0) statistika.nzd++;
+    });
+    document.getElementById("odl").textContent = statistika.odl;
+    document.getElementById("pdb").textContent = statistika.pdb;
+    document.getElementById("db").textContent = statistika.db;
+    document.getElementById("zd").textContent = statistika.zd;
+    document.getElementById("nzd").textContent = statistika.nzd;
+    document.getElementById("nps").textContent = statistika.nps;
+  }
+
   document.getElementById('pregled-koda').addEventListener('input', function () {
     const koda = this.value;
     const dijak = dijaki.find(d => d.koda === koda);
     const prikaz = document.getElementById("rezultat-prikaz");
-    if (!dijak || dijak.tocke.length !== 16) {
-      prikaz.innerHTML = "<p>Podatki niso na voljo ali niso še vnešeni.</p>";
+    prikaz.innerHTML = "";
+
+    if (!dijak) {
+      prikaz.innerHTML = "<p>Dijak s to kodo ne obstaja.</p>";
       return;
     }
 
+    const tabela = document.createElement("table");
+    tabela.innerHTML = "<tr><th>Naloga</th><th>Točke</th></tr>";
+
+    dijak.tocke.forEach((t, i) => {
+      tabela.innerHTML += `<tr><td>Naloga ${i + 1}</td><td>${t}</td></tr>`;
+    });
+
+    prikaz.appendChild(tabela);
+
     const vsota = dijak.tocke.reduce((a, b) => a + b, 0);
     const procent = ((vsota / 128) * 100).toFixed(2);
-    prikaz.innerHTML = `
-      <h3>Rezultati za kodo: ${dijak.koda}</h3>
-      <p>Točke: ${vsota} / 128</p>
-      <p>Uspešnost: ${procent}%</p>
-    `;
+    let ocena = "";
+    if (vsota === 0) ocena = "Nps";
+    else if (procent >= 90) ocena = "Odl (5)";
+    else if (procent >= 75) ocena = "Pdb (4)";
+    else if (procent >= 60) ocena = "Db (3)";
+    else if (procent >= 50) ocena = "Zd (2)";
+    else if (procent > 0) ocena = "Nzd (1)";
+
+    prikaz.innerHTML += `<hr><p><strong>Skupno:</strong> ${vsota} / 128</p>`;
+    prikaz.innerHTML += `<p><strong>Uspešnost:</strong> ${procent}%</p>`;
+    prikaz.innerHTML += `<p><strong>Ocena:</strong> ${ocena}</p>`;
   });
 </script>
 
