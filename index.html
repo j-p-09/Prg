@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8">
+  <title>NPZ Sistem</title>
+<link rel="icon" type="image/png" href="img_1.png">
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    nav { background: #0077cc; padding: 10px; color: white; display: flex; gap: 20px; }
+    nav button { background: none; border: none; color: white; font-size: 16px; cursor: pointer; }
+    section { padding: 20px; display: none; }
+    section.active { display: block; }
+    input, button, select { display: block; margin: 10px 0; padding: 5px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .gumbi {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .naloga-box { margin-bottom: 15px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Prijava -->
+<section id="login" class="active">
+  <h2>Prijava za admina</h2>
+  <input type="text" id="login-username" placeholder="Uporabniško ime">
+  <input type="password" id="login-password" placeholder="Geslo">
+  <button onclick="prijava()">Prijava</button>
+</section>
+
+<!-- Glavni meni -->
+<nav id="main-nav" class="hidden">
+  <button onclick="showSection('admin')">Admin</button>
+  <button onclick="showSection('ocenjevanje')">Ocenjevanje</button>
+  <button onclick="showSection('rezultati')">Rezultati</button>
+</nav>
+
+<!-- ADMIN -->
+<section id="admin">
+  <h2>Administracija dijakov</h2>
+  <input type="text" id="student-name" placeholder="Ime in priimek">
+  <button onclick="dodajDijaka()">Dodaj dijaka</button>
+  <h3>Seznam dijakov</h3>
+  <table id="dijaki-tabela">
+    <tr><th>Koda</th><th>Ime</th><th>Dejanje</th></tr>
+  </table>
+</section>
+
+<!-- OCENJEVANJE -->
+<section id="ocenjevanje">
+  <h2>Vnos rezultatov NPZ</h2>
+  <input type="text" id="vnos-koda" placeholder="Vnesi 4-mestno kodo dijaka">
+  <div id="naloge-vnos" class="hidden">
+    <h3>Vnesi točke (klikni gumb za vsako nalogo)</h3>
+    <div id="naloge"></div>
+    <button onclick="shraniRezultate()">Shrani rezultate</button>
+  </div>
+</section>
+
+<!-- PREGLED -->
+<section id="rezultati">
+  <h2>Pregled rezultatov</h2>
+  <input type="text" id="pregled-koda" placeholder="Vnesi 4-mestno kodo">
+  <div id="rezultat-prikaz"></div>
+</section>
+
+<script>
+  let dijaki = [];
+
+  function shraniVLocalStorage() {
+    localStorage.setItem('dijaki', JSON.stringify(dijaki));
+  }
+
+  function naloziIzLocalStorage() {
+    const podatki = localStorage.getItem('dijaki');
+    if (podatki) {
+      dijaki = JSON.parse(podatki);
+      posodobiTabelo();
+    }
+  }
+
+  naloziIzLocalStorage();
+
+  function prijava() {
+    const u = document.getElementById('login-username').value;
+    const p = document.getElementById('login-password').value;
+    if (u === 'admin' && p === 'npz123') {
+      document.getElementById('login').classList.remove('active');
+      document.getElementById('login').classList.add('hidden');
+      document.getElementById('main-nav').classList.remove('hidden');
+      showSection('admin');
+    } else {
+      alert("Napačno uporabniško ime ali geslo.");
+    }
+  }
+
+  function showSection(id) {
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  function generirajKodo() {
+    let koda;
+    do {
+      koda = Math.floor(1000 + Math.random() * 9000).toString();
+    } while (dijaki.some(d => d.koda === koda));
+    return koda;
+  }
+
+  function dodajDijaka() {
+    const ime = document.getElementById('student-name').value.trim();
+    if (!ime) return alert("Vnesi ime!");
+    const koda = generirajKodo();
+    dijaki.push({ ime, koda, tocke: [] });
+    shraniVLocalStorage();
+    posodobiTabelo();
+    alert(`Dijak dodan! Koda: ${koda}`);
+    document.getElementById('student-name').value = "";
+  }
+
+  function odstraniDijaka(index) {
+    dijaki.splice(index, 1);
+    shraniVLocalStorage();
+    posodobiTabelo();
+  }
+
+  function posodobiTabelo() {
+    const tabela = document.getElementById("dijaki-tabela");
+    tabela.innerHTML = "<tr><th>Koda</th><th>Ime</th><th>Dejanje</th></tr>";
+    dijaki.forEach((d, i) => {
+      const vrstica = `<tr>
+        <td>${d.koda}</td>
+        <td>${d.ime}</td>
+        <td><button onclick="odstraniDijaka(${i})">Odstrani</button></td>
+      </tr>`;
+      tabela.innerHTML += vrstica;
+    });
+  }
+
+  document.getElementById('vnos-koda').addEventListener('input', function () {
+    const koda = this.value;
+    const dijak = dijaki.find(d => d.koda === koda);
+    const vnosDiv = document.getElementById('naloge-vnos');
+    if (dijak) {
+      vnosDiv.classList.remove('hidden');
+      const container = document.getElementById('naloge');
+      container.innerHTML = '';
+      for (let i = 0; i < 16; i++) {
+        const trenutna = dijak.tocke[i] ?? 0;
+        let gumbi = '';
+        for (let t = 0; t <= 8; t++) {
+          gumbi += `<button onclick="nastaviTocko(${i}, ${t})" id="gumb-${i}-${t}">${t}</button>`;
+        }
+        container.innerHTML += `<div class="naloga-box">
+          <strong>Naloga ${i + 1}</strong> (Trenutno: <span id="trenutna-${i}">${trenutna}</span>)
+          <div class="gumbi">${gumbi}</div>
+        </div>`;
+      }
+    } else {
+      vnosDiv.classList.add('hidden');
+    }
+  });
+
+  function nastaviTocko(index, vrednost) {
+    const koda = document.getElementById('vnos-koda').value;
+    const dijak = dijaki.find(d => d.koda === koda);
+    if (!dijak) return;
+    dijak.tocke[index] = vrednost;
+    document.getElementById(`trenutna-${index}`).textContent = vrednost;
+    shraniVLocalStorage();
+  }
+
+  function shraniRezultate() {
+    alert("Rezultati shranjeni.");
+  }
+
+  document.getElementById('pregled-koda').addEventListener('input', function () {
+    const koda = this.value;
+    const dijak = dijaki.find(d => d.koda === koda);
+    const prikaz = document.getElementById("rezultat-prikaz");
+    if (!dijak || dijak.tocke.length !== 16) {
+      prikaz.innerHTML = "<p>Podatki niso na voljo ali niso še vnešeni.</p>";
+      return;
+    }
+
+    const vsota = dijak.tocke.reduce((a, b) => a + b, 0);
+    const procent = ((vsota / 128) * 100).toFixed(2);
+    prikaz.innerHTML = `
+      <h3>Rezultati za kodo: ${dijak.koda}</h3>
+      <p>Točke: ${vsota} / 128</p>
+      <p>Uspešnost: ${procent}%</p>
+    `;
+  });
+</script>
+
+</body>
+</html>
